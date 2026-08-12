@@ -183,7 +183,6 @@ public class RecommendationService {
             DiagnosisTask task = diagnosisTaskRepository.findById(taskId)
                     .orElseThrow(TaskException::notFound);
 
-            // 1) OpenAI로 추천 방향/이유 판단
             RecommendationJudgmentDto judgment = openAiRecommendationClient.judge(
                     task.getProductType(),
                     task.getKeywords(),
@@ -191,15 +190,21 @@ public class RecommendationService {
                     task.getDiagnosisResult()
             );
 
-            // 2) 시뮬레이션(steps/beforeAfter)은 아직 Gemini 붙기 전이라 템플릿 유지
-            SimulationDto simulation = buildTemplateSimulation();
+            List<RankedRecommendationDto> rankings = judgment.getRankings();
+            RankedRecommendationDto top = rankings.get(0);
+            List<RankedRecommendationDto> alternatives = rankings.subList(1, rankings.size());
+
+            // 1순위가 REFORM일 때만 시뮬레이션 포함
+            SimulationDto simulation = "REFORM".equals(top.getRecommendationType())
+                    ? buildTemplateSimulation()
+                    : null;
 
             RecommendationDetailDto detail = new RecommendationDetailDto(
-                    judgment.getRecommendationType(),
-                    judgment.getReason(),
+                    top.getRecommendationType(),
+                    top.getReasons(),
+                    alternatives,
                     simulation
             );
-
             Map<String, Object> resultMap = objectMapper.convertValue(detail, Map.class);
 
             task.completeRecommendation(resultMap);
@@ -207,9 +212,9 @@ public class RecommendationService {
 
         } catch (Exception e) {
             log.error("추천/시뮬레이션 생성 실패. taskId={}", taskId, e);
-            diagnosisTaskRepository.findById(taskId).ifPresent(task -> {
-                task.failRecommendation(e.getMessage());
-                diagnosisTaskRepository.save(task);
+            diagnosisTaskRepository.findById(taskId).ifPresent(t -> {
+                t.failRecommendation(e.getMessage());
+                diagnosisTaskRepository.save(t);
             });
         }
     }
