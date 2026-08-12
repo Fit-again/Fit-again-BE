@@ -3,7 +3,6 @@ package com.fitagain.domain.consultation.entity;
 import com.fitagain.domain.task.entity.DiagnosisTask;
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "consultation")
