@@ -2,6 +2,17 @@ spring:
   application:
     name: fitagain
 
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 100MB
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o
+
   cloud:
     aws:
       s3:
