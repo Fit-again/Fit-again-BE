@@ -1,6 +1,7 @@
 package com.fitagain.global.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public class ApiResponse<T> {
@@ -25,7 +26,9 @@ public class ApiResponse<T> {
         return new ApiResponse<>(false, code, message, null);
     }
 
+    @JsonProperty("isSuccess")
     public boolean isSuccess() { return isSuccess; }
+
     public String getCode() { return code; }
     public String getMessage() { return message; }
     public T getResult() { return result; }
