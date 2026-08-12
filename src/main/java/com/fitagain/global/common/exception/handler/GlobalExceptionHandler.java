@@ -1,6 +1,7 @@
-package com.fitagain.global.response;
+package com.fitagain.global.common.exception.handler;
 
 import com.fitagain.domain.recommend.exception.TaskException;
+import com.fitagain.global.common.CustomResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -13,17 +14,17 @@ import io.swagger.v3.oas.annotations.Hidden;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(TaskException.class)
-    public ResponseEntity<ApiResponse<Object>> handleTaskException(TaskException e) {
+    public ResponseEntity<CustomResponse<Object>> handleTaskException(TaskException e) {
         return ResponseEntity
                 .status(e.getHttpStatus())
-                .body(ApiResponse.fail(e.getCode(), e.getMessage()));
+                .body(CustomResponse.onFailure(e.getCode(), e.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Object>> handleUnexpectedException(Exception e) {
+    public ResponseEntity<CustomResponse<Object>> handleUnexpectedException(Exception e) {
         e.printStackTrace(); // 에러 원인 파악을 위한 로그 출력
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail("COMMON500", "서버 내부 오류가 발생했습니다."));
+                .body(CustomResponse.onFailure("COMMON500", "서버 내부 오류가 발생했습니다."));
     }
 }
