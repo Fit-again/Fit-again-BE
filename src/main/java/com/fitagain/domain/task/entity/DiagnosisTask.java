@@ -55,4 +55,18 @@ public class DiagnosisTask {
 
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
+
+    public void startRecommending() {
+        this.status = TaskStatus.RECOMMENDING;
+    }
+
+    public void completeRecommendation(Map<String, Object> recommendationResult) {
+        this.recommendationResult = recommendationResult;
+        this.status = TaskStatus.RECOMMENDED;
+    }
+
+    public void failRecommendation(String errorMessage) {
+        this.status = TaskStatus.FAILED;
+        this.errorMessage = errorMessage;
+    }
 }
