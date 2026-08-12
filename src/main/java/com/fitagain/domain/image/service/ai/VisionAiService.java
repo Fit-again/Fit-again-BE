@@ -19,10 +19,10 @@ import java.util.List;
 @Service
 public class VisionAiService {
 
-    @Value("${spring.ai.openai.api-key}")
+    @Value("${openai.api-key}")
     private String openAiApiKey;
 
-    @Value("${spring.ai.openai.chat.options.model:gpt-4o}")
+    @Value("${openai.model:gpt-4o}")
     private String model;
 
     private final ObjectMapper objectMapper = new ObjectMapper();

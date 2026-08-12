@@ -16,7 +16,7 @@ public class RecommendationController {
 
     @PostMapping
     public ApiResponse<RecommendationRequestResultDto> requestRecommendation(
-            @PathVariable Long taskId
+            @PathVariable("taskId") Long taskId
     ) {
         Long resultTaskId = recommendationService.requestRecommendation(taskId);
         return ApiResponse.success(
@@ -28,7 +28,7 @@ public class RecommendationController {
 
     @GetMapping
     public ApiResponse<RecommendationResultDto> getRecommendation(
-            @PathVariable Long taskId
+            @PathVariable("taskId") Long taskId
     ) {
         RecommendationResultDto result = recommendationService.getRecommendation(taskId);
         String message = "RECOMMENDED".equals(result.getStatus())
