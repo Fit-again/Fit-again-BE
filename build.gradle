@@ -27,6 +27,9 @@ dependencies {
 	// Spring Web
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
+	// AWS S3 (Native AWS SDK v2)
+	implementation 'software.amazon.awssdk:s3:2.25.11'
+
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
