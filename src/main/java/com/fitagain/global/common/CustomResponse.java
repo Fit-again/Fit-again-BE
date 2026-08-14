@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 public class CustomResponse<T> {
 
     @JsonProperty("isSuccess")
-    private boolean isSuccess;
+    private Boolean isSuccess;
 
     @JsonProperty("code")
     private String code;

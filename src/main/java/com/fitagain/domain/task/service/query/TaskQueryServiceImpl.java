@@ -7,10 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +24,8 @@ public class TaskQueryServiceImpl implements TaskQueryService {
 
         Map<String, Object> mergedResult = null;
         if (task.getDiagnosisResult() != null) {
-            mergedResult = new HashMap<>(task.getDiagnosisResult());
+            // 순서를 보장하기 위해 LinkedHashMap 사용
+            mergedResult = new LinkedHashMap<>();
             
             // 이미지 전체 리스트화
             List<String> allImages = new ArrayList<>();
@@ -35,8 +33,17 @@ public class TaskQueryServiceImpl implements TaskQueryService {
             if (task.getDetailImageUrls() != null) allImages.addAll(task.getDetailImageUrls());
             if (task.getDamageImageUrls() != null) allImages.addAll(task.getDamageImageUrls());
             
+            // 나머지 결과값들을 순서대로 넣어줍니다.
             mergedResult.put("allImages", allImages);
             mergedResult.put("productType", task.getProductType());
+            
+            final Map<String, Object> finalMergedResult = mergedResult;
+            task.getDiagnosisResult().forEach((k, v) -> {
+                if (!k.equals("allImages") && !k.equals("productType")) {
+                    finalMergedResult.put(k, v);
+                }
+            });
+            
         }
 
         return new DiagnosisResDTO.DiagnosisResultDTO(
