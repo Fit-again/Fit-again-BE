@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 public class CustomResponse<T> {
 
     @JsonProperty("isSuccess")
-    private boolean isSuccess;
+    private Boolean isSuccess;
 
     @JsonProperty("code")
     private String code;
@@ -29,6 +29,11 @@ public class CustomResponse<T> {
     // 상태 코드를 받아서 사용하는 성공 응답 생성 메서드
     public static <T> CustomResponse<T> onSuccess(HttpStatus status, T result) {
         return new CustomResponse<>(true, String.valueOf(status.value()), status.getReasonPhrase(), result);
+    }
+
+    // 커스텀 코드와 메시지를 받아서 사용하는 성공 응답 생성 메서드
+    public static <T> CustomResponse<T> onSuccess(String code, String message, T result) {
+        return new CustomResponse<>(true, code, message, result);
     }
 
     // 실패 응답 생성 메서드 (데이터 포함)
