@@ -20,4 +20,7 @@ public class SimulationDto {
 
     @Schema(description = "Before/After 비교 데이터")
     private BeforeAfterDto beforeAfter;
+
+    @Schema(description = "사용자가 촬영한 손상 부위 이미지 URL 목록 (DiagnosisTask.damageImageUrls 재사용, 없으면 빈 리스트)")
+    private List<String> damageImageUrls;
 }

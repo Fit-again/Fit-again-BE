@@ -3,7 +3,6 @@ HELP.md
 .gradle/
 build/
 
-!gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 
@@ -49,3 +48,5 @@ logs/
 *.class
 *.jar
 *.war
+
+!gradle/wrapper/gradle-wrapper.jar
