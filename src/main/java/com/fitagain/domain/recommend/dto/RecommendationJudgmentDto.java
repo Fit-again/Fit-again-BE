@@ -1,19 +1,17 @@
 package com.fitagain.domain.recommend.dto;
 
+import java.util.List;
+
 public class RecommendationJudgmentDto {
 
-    private String recommendationType; // REFORM, RESELL, UPCYCLING
-    private String reason;
+    private List<RankedRecommendationDto> rankings;
 
     public RecommendationJudgmentDto() {}
 
-    public RecommendationJudgmentDto(String recommendationType, String reason) {
-        this.recommendationType = recommendationType;
-        this.reason = reason;
+    public RecommendationJudgmentDto(List<RankedRecommendationDto> rankings) {
+        this.rankings = rankings;
     }
 
-    public String getRecommendationType() { return recommendationType; }
-    public void setRecommendationType(String recommendationType) { this.recommendationType = recommendationType; }
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
+    public List<RankedRecommendationDto> getRankings() { return rankings; }
+    public void setRankings(List<RankedRecommendationDto> rankings) { this.rankings = rankings; }
 }

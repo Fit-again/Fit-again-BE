@@ -72,4 +72,35 @@ public class S3Uploader {
         return fileUrls;
     }
 
+    /**
+     * 바이트 배열(예: Gemini가 생성한 이미지)을 S3에 업로드하고 퍼블릭 URL을 반환합니다.
+     * @param data 업로드할 바이트 배열
+     * @param contentType 이미지 MIME 타입 (예: "image/png")
+     * @param dirName S3 내부에 저장될 폴더 이름
+     * @return S3 객체 URL
+     */
+    public String upload(byte[] data, String contentType, String dirName) {
+        String uniqueFileName = dirName + "/" + UUID.randomUUID() + extensionFor(contentType);
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(uniqueFileName)
+                .contentType(contentType)
+                .build();
+
+        s3Client.putObject(putObjectRequest, RequestBody.fromBytes(data));
+
+        return "https://" + bucket + ".s3.ap-northeast-2.amazonaws.com/" + uniqueFileName;
+    }
+
+    private String extensionFor(String contentType) {
+        if (contentType == null) return "";
+        return switch (contentType) {
+            case "image/png" -> ".png";
+            case "image/webp" -> ".webp";
+            case "image/jpeg", "image/jpg" -> ".jpg";
+            default -> "";
+        };
+    }
+
 }

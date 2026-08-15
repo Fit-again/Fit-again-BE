@@ -69,8 +69,12 @@ public class DiagnosisAiService {
                     "  \"damageState\": [\"손상 상태 최대 3개 (예: 모서리 마모, 스트랩 사용감)\"],\n" +
                     "  \"currentPurpose\": \"사용자의 설명란이나 가방 형태에 의해 알 수 있다면 '출퇴근용'과 같이 사용 목적을 응답하고, 그렇지 않다면 '확인할 수 없음' 반환\",\n" +
                     "  \"mainInconvenience\": [\"주요 불편 원인 최대 3개 요약 (예: 어깨에 부담이 감, 스트랩이 자주 흘러내림)\"],\n" +
-                    "  \"areasForImprovement\": [\"개선 필요 부분 최대 3개 요약 (예: 경량 스트랩 교체, 어깨 패드 추가, 모서리 보강)\"]\n" +
-                    "}",
+                    "  \"areasForImprovement\": [\"개선 필요 부분 최대 3개 요약 (예: 경량 스트랩 교체, 어깨 패드 추가, 모서리 보강)\"],\n" +
+                    "  \"color\": \"대표 정면 사진에 보이는 가방의 주된 색상을 영어로 간결하게 (예: pink, dark brown, cream)\",\n" +
+                    "  \"size\": \"가방의 대략적인 크기 (예: small, medium, large)\",\n" +
+                    "  \"pattern\": \"가방 표면의 패턴/재질 특징 (예: solid, monogram, quilted, no distinct pattern)\"\n" +
+                    "}\n" +
+                    "color/size/pattern은 이후 이미지 생성 프롬프트에 그대로 사용되므로, 반드시 사진에서 실제로 보이는 값을 정확히 반환해야 합니다.",
                     productType, keywords.toString(), description != null ? description : "없음"
             );
             textContent.put("text", prompt);
