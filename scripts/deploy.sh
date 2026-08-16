@@ -24,12 +24,17 @@ fi
 echo "> 새 애플리케이션 실행 준비..."
 cd $APP_DIR
 
-# EC2 내부에 숨겨둔 .env 파일을 로드하여 환경변수로 적용
+# EC2 내부에 숨겨둔 .env 파일을 안전하게 파싱하여 환경변수로 적용 (특수기호 에러 방지)
 if [ -f /home/ubuntu/app/.env ]; then
-    echo "> .env 파일을 로드합니다."
-    set -a
-    source /home/ubuntu/app/.env
-    set +a
+    echo "> .env 파일을 안전하게 로드합니다."
+    while IFS='=' read -r key value; do
+        if [[ ! -z "$key" && "$key" != \#* ]]; then
+            # 양끝 따옴표 제거 (따옴표가 있어도 무시)
+            value="${value%\"}"
+            value="${value#\"}"
+            export "$key=$value"
+        fi
+    done < /home/ubuntu/app/.env
 else
     echo "> 경고: .env 파일을 찾을 수 없습니다!"
 fi
