@@ -1,3 +1,20 @@
+# 이미지 생성 최종 전환: OpenAI → Gemini
+
+> 이 문서 보고 아래 내용 그대로 적용해줘.
+> OpenAI(gpt-image-2)는 팀 조직의 Organization Verification이 막혀서
+> rate limit이 0으로 계속 떠서 이미지 생성이 아예 안 됨 (텍스트 판단용 gpt-4o는 계속 정상 사용).
+> 그래서 이미지 생성은 최종적으로 Gemini로 확정함. GeminiConfig/GeminiImageClient는
+> 이미 프로젝트에 존재하니 삭제하지 말고 그대로 활용, RecommendationService의
+> 호출부만 OpenAiImageClient에서 GeminiImageClient로 교체.
+
+## 1. `GeminiImageClient.java` 전체 교체
+
+기존 파일(`domain/recommend/client/GeminiImageClient.java`)을 아래 내용으로 완전히 덮어써줘.
+기존과 달라진 점: `generateReformAfterImage`/`generateUpcyclingImage`에
+`Map<String, Object> diagnosisResult` 파라미터가 추가됨 — 진단 결과(색상/사이즈/패턴 등)가
+있으면 프롬프트에 참고 문구로 포함시켜서 원본과 색상이 달라지는 문제를 줄임.
+
+```java
 package com.fitagain.domain.recommend.client;
 
 import com.fitagain.domain.recommend.dto.RecommendedWorkDto;
@@ -164,3 +181,34 @@ public class GeminiImageClient {
         }
     }
 }
+```
+
+## 2. `RecommendationService.java` 수정
+
+- 필드: `OpenAiImageClient openAiImageClient` → `GeminiImageClient geminiImageClient`로 교체 (또는 추가, `OpenAiImageClient`는 지우지 않아도 됨)
+- REFORM 이미지 생성 호출부(`fillReformSimulation` 안, 지금 `openAiImageClient.generateImage(prompt)` 형태로 되어 있는 곳)를 아래로 교체:
+  ```java
+  byte[] imageBytes = geminiImageClient.generateReformAfterImage(
+          task.getFrontImageUrl(),
+          task.getDetailImageUrls(),
+          top.getRecommendedWorks(),
+          task.getDiagnosisResult()
+  );
+  ```
+- UPCYCLING 이미지 생성 호출부(`fillUpcyclingImage` 안)를 아래로 교체:
+  ```java
+  byte[] imageBytes = geminiImageClient.generateUpcyclingImage(
+          task.getFrontImageUrl(),
+          task.getDetailImageUrls(),
+          candidate,
+          task.getDiagnosisResult()
+  );
+  ```
+- 기존에 프롬프트를 직접 조합하던 `buildReformImagePrompt(...)`, `buildUpcyclingImagePrompt(...)` private 메서드는 이제 안 쓰니 삭제해도 됨 (프롬프트 조합 로직이 `GeminiImageClient` 내부로 이동함).
+- S3 업로드 부분(`s3Uploader.upload(imageBytes, "image/png", "recommendations/reform")` 등)은 그대로 유지.
+
+## 3. 확인할 것
+
+- `GeminiConfig`의 `RestClient` 빈과 `OpenAiConfig`/`HuggingFaceConfig`의 `RestClient` 빈이 동시에 존재해서 주입 모호성 에러가 나면, `GeminiConfig`에 `@Bean(name = "geminiRestClient")` 명시하고 `GeminiImageClient` 생성자 파라미터에 `@Qualifier("geminiRestClient")` 추가.
+- `task.getDiagnosisResult()`가 아직 색상/사이즈/패턴 키를 안 담고 있어도 에러 없이 동작함(`buildDiagnosisNote`가 null-safe). 나중에 진단 담당자 스키마 확정되면 `color`/`size`/`pattern` 키 이름만 맞춰주면 됨.
+- 컴파일 확인: `./gradlew compileJava --console=plain`
