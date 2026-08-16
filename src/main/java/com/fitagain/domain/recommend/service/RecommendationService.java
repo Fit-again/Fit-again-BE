@@ -1,6 +1,6 @@
 package com.fitagain.domain.recommend.service;
 
-import com.fitagain.domain.recommend.client.HuggingFaceImageClient;
+import com.fitagain.domain.recommend.client.GeminiImageClient;
 import com.fitagain.domain.recommend.client.OpenAiRecommendationClient;
 import com.fitagain.domain.recommend.dto.*;
 import com.fitagain.domain.recommend.exception.TaskException;
@@ -27,7 +27,7 @@ public class RecommendationService {
     private final DiagnosisTaskRepository diagnosisTaskRepository;
     private final ObjectMapper objectMapper;
     private final OpenAiRecommendationClient openAiRecommendationClient;
-    private final HuggingFaceImageClient huggingFaceImageClient;
+    private final GeminiImageClient geminiImageClient;
     private final S3Uploader s3Uploader;
 
     @Transactional
@@ -122,26 +122,19 @@ public class RecommendationService {
     private void fillReformSimulation(DiagnosisTask task, RankedRecommendationDto reform) {
         String beforeImageUrl = task.getFrontImageUrl();
 
-        CompletableFuture<String> replacementFuture = CompletableFuture.supplyAsync(() -> {
-            String replacementPrompt = buildReplacementImagePrompt(task, reform.getRecommendedWorks());
-            byte[] replacementImageBytes = huggingFaceImageClient.generateImage(replacementPrompt);
-            return s3Uploader.upload(replacementImageBytes, "image/png", "recommendations/reform");
-        });
-
-        CompletableFuture<String> afterFuture = CompletableFuture.supplyAsync(() -> {
-            String afterPrompt = buildReformImagePrompt(task, reform.getRecommendedWorks());
-            byte[] afterImageBytes = huggingFaceImageClient.generateImage(afterPrompt);
-            return s3Uploader.upload(afterImageBytes, "image/png", "recommendations/reform");
-        });
-
-        String replacementImageUrl = replacementFuture.join();
-        String afterImageUrl = afterFuture.join();
+        byte[] afterImageBytes = geminiImageClient.generateReformAfterImage(
+                task.getFrontImageUrl(),
+                task.getDetailImageUrls(),
+                reform.getRecommendedWorks(),
+                task.getDiagnosisResult()
+        );
+        String afterImageUrl = s3Uploader.upload(afterImageBytes, "image/png", "recommendations/reform");
 
         List<StepDto> steps = List.of(
                 new StepDto(1, "해체",
                         List.of("교체 대상 부위 확인", "기존 부품 분리 준비"), beforeImageUrl),
                 new StepDto(2, "교체",
-                        List.of("경량 스트랩 교체", "어깨 패드 추가"), replacementImageUrl),
+                        List.of("경량 스트랩 교체", "어깨 패드 추가"), afterImageUrl),
                 new StepDto(3, "보강",
                         List.of("모서리 보수", "가죽 마감 보강"), afterImageUrl),
                 new StepDto(4, "완성",
@@ -162,59 +155,12 @@ public class RecommendationService {
     }
 
     private void fillUpcyclingImage(DiagnosisTask task, UpcyclingCandidateDto candidate) {
-        String prompt = buildUpcyclingImagePrompt(task, candidate);
-        byte[] imageBytes = huggingFaceImageClient.generateImage(prompt);
+        byte[] imageBytes = geminiImageClient.generateUpcyclingImage(
+                task.getFrontImageUrl(),
+                task.getDetailImageUrls(),
+                candidate,
+                task.getDiagnosisResult()
+        );
         candidate.setImageUrl(s3Uploader.upload(imageBytes, "image/png", "recommendations/upcycling"));
-    }
-
-    private String buildReformImagePrompt(DiagnosisTask task, List<RecommendedWorkDto> works) {
-        String workSummary = works.stream()
-                .map(RecommendedWorkDto::getDescription)
-                .collect(java.util.stream.Collectors.joining(" "));
-        String[] csp = colorSizePattern(task);
-        String color = csp[0], size = csp[1], pattern = csp[2];
-
-        return """
-                A high-quality product photo of a %s %s bag, %s size, %s pattern,
-                after the following repairs/reform have been applied: %s.
-                The bag color and material must closely match the original: %s colored leather.
-                Studio lighting, clean beige background, realistic leather texture, no text, no watermark.
-                """.formatted(color, task.getProductType(), size, pattern, workSummary, color);
-    }
-
-    private String buildReplacementImagePrompt(DiagnosisTask task, List<RecommendedWorkDto> works) {
-        String workSummary = works.stream()
-                .map(RecommendedWorkDto::getDescription)
-                .collect(java.util.stream.Collectors.joining(" "));
-        String[] csp = colorSizePattern(task);
-        String color = csp[0];
-
-        return """
-                A close-up product photo of standalone replacement bag accessories (strap and/or shoulder pad)
-                for a %s colored %s bag, matching the bag's %s colored leather: %s.
-                The accessory color must closely match the original: %s colored leather.
-                Only the accessory itself on a clean beige background, studio lighting, no text, no watermark.
-                """.formatted(color, task.getProductType(), color, workSummary, color);
-    }
-
-    private String buildUpcyclingImagePrompt(DiagnosisTask task, UpcyclingCandidateDto candidate) {
-        String[] csp = colorSizePattern(task);
-        String color = csp[0], pattern = csp[2];
-
-        return """
-                A high-quality product photo of a %s, %s colored, %s pattern,
-                upcycled/repurposed from an old %s bag, reusing its leather and hardware details.
-                The color must closely match the original: %s colored leather.
-                %s
-                Studio lighting, clean beige background, realistic leather texture, no text, no watermark.
-                """.formatted(candidate.getItemName(), color, pattern, task.getProductType(), color, candidate.getDescription());
-    }
-
-    private String[] colorSizePattern(DiagnosisTask task) {
-        Map<String, Object> diagnosis = task.getDiagnosisResult();
-        String color = diagnosis != null ? String.valueOf(diagnosis.getOrDefault("color", "")) : "";
-        String size = diagnosis != null ? String.valueOf(diagnosis.getOrDefault("size", "")) : "";
-        String pattern = diagnosis != null ? String.valueOf(diagnosis.getOrDefault("pattern", "")) : "";
-        return new String[]{color, size, pattern};
     }
 }
