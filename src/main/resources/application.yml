@@ -2,6 +2,9 @@ spring:
   application:
     name: fitagain
 
+  config:
+    import: optional:file:.env[.properties], optional:file:Fit-again-BE/.env[.properties]
+
   servlet:
     multipart:
       max-file-size: 20MB
@@ -22,10 +25,13 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
         format_sql: true
