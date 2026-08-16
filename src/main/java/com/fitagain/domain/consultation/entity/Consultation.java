@@ -3,6 +3,10 @@ package com.fitagain.domain.consultation.entity;
 import com.fitagain.domain.task.entity.DiagnosisTask;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.util.List;
 
 @Entity
 @Table(name = "consultation")
@@ -31,4 +35,11 @@ public class Consultation {
 
     @Column(name = "privacy_agreed", nullable = false)
     private Boolean privacyAgreed;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "desired_upcycling_products", columnDefinition = "json")
+    private List<String> desiredUpcyclingProducts;
+
+    @Column(name = "important_aspect")
+    private String importantAspect;
 }
