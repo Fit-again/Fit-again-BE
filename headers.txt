@@ -1,0 +1,20 @@
+HTTP/1.1 400 Bad Request
+Content-Type: application/json; charset=utf-8
+Content-Length: 50
+Connection: keep-alive
+Date: Fri, 14 Aug 2026 14:42:42 GMT
+ETag: W/"32-xixYi0h6gkLDmBJx39P0asKTHYo"
+X-Powered-By: huggingface-moon
+X-Request-Id: Root=1-6a7f2962-667a4a6f789d0f1d013bfe4e
+cross-origin-opener-policy: same-origin
+Referrer-Policy: strict-origin-when-cross-origin
+Vary: Origin
+Access-Control-Allow-Origin: *
+Access-Control-Expose-Headers: X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,X-Total-Count,ETag,Link,Accept-Ranges,Content-Range,X-Linked-Size,X-Linked-ETag,X-Xet-Hash
+X-Robots-Tag: none
+X-Error-Message: Model not supported by provider fal-ai
+X-Cache: Error from cloudfront
+Via: 1.1 9cc67a9eae9941b3a40dda8537f277b0.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: ICN80-P1
+X-Amz-Cf-Id: dCoSCCNyySnEjoYysBTjJdf-mO156l7zUhC-zZhpS9BiI5o6mJf4Rg==
+
