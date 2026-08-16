@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: fitagain
+
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 100MB
+
+  cloud:
+    aws:
+      s3:
+        bucket: ${AWS_BUCKET}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY}
+        secret-key: ${AWS_SECRET_KEY}
+      region:
+        static: ap-northeast-2
+
+  profiles:
+    active: local # 기본으로 local 프로필 실행
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+        default_batch_fetch_size: 100
+
+# OpenAI 설정 통일
+openai:
+  api-key: ${OPENAI_API_KEY}
+  model: gpt-4o
+
+# Gemini 설정 (이미지 생성)
+gemini:
+  api-key: ${GEMINI_API_KEY}
+  model: gemini-3.1-flash-image
+
+#huggin-face 설정 (이미지 생성)
+huggingface:
+  api-key: ${HF_API_KEY}
+  model: stabilityai/stable-diffusion-3-medium-diffusers
