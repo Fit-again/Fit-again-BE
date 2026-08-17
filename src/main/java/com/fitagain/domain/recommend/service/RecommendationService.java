@@ -7,6 +7,7 @@ import com.fitagain.domain.recommend.exception.TaskException;
 import com.fitagain.domain.task.entity.DiagnosisTask;
 import com.fitagain.domain.task.enums.TaskStatus;
 import com.fitagain.domain.task.repository.DiagnosisTaskRepository;
+import com.fitagain.global.util.ImageMarkerRenderer;
 import com.fitagain.global.util.S3Uploader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +30,7 @@ public class RecommendationService {
     private final ObjectMapper objectMapper;
     private final OpenAiRecommendationClient openAiRecommendationClient;
     private final GeminiImageClient geminiImageClient;
+    private final ImageMarkerRenderer imageMarkerRenderer;
     private final S3Uploader s3Uploader;
 
     @Transactional
@@ -70,7 +73,9 @@ public class RecommendationService {
                     task.getProductType(),
                     task.getKeywords(),
                     task.getDescription(),
-                    task.getDiagnosisResult()
+                    task.getDiagnosisResult(),
+                    task.getFrontImageUrl(),
+                    task.getDamageImageUrls()
             );
 
             List<RankedRecommendationDto> rankings = judgment.getRankings();
@@ -121,25 +126,54 @@ public class RecommendationService {
 
     private void fillReformSimulation(DiagnosisTask task, RankedRecommendationDto reform) {
         String beforeImageUrl = task.getFrontImageUrl();
+        List<RecommendedWorkDto> works = reform.getRecommendedWorks();
+        List<DamageMarkerDto> damageMarkers = reform.getDamageMarkers() == null ? List.of() : reform.getDamageMarkers();
 
-        byte[] afterImageBytes = geminiImageClient.generateReformAfterImage(
-                task.getFrontImageUrl(),
-                task.getDetailImageUrls(),
-                reform.getRecommendedWorks(),
-                task.getDiagnosisResult()
-        );
-        String afterImageUrl = s3Uploader.upload(afterImageBytes, "image/png", "recommendations/reform");
+        List<RecommendedWorkDto> replaceWorks = works.stream()
+                .filter(w -> "REPLACE".equals(w.getCategory()))
+                .toList();
+        List<RecommendedWorkDto> reinforceWorks = works.stream()
+                .filter(w -> "REINFORCE".equals(w.getCategory()))
+                .toList();
 
-        List<StepDto> steps = List.of(
-                new StepDto(1, "해체",
-                        List.of("교체 대상 부위 확인", "기존 부품 분리 준비"), beforeImageUrl),
-                new StepDto(2, "교체",
-                        List.of("경량 스트랩 교체", "어깨 패드 추가"), afterImageUrl),
-                new StepDto(3, "보강",
-                        List.of("모서리 보수", "가죽 마감 보강"), afterImageUrl),
-                new StepDto(4, "완성",
-                        List.of("최종 리폼 결과 확인", "개선된 사용 모습 미리보기"), afterImageUrl)
-        );
+        CompletableFuture<String> replaceFuture = replaceWorks.isEmpty()
+                ? CompletableFuture.completedFuture(null)
+                : CompletableFuture.supplyAsync(() -> generateReformStepImage(task, replaceWorks));
+
+        CompletableFuture<String> reinforceFuture = reinforceWorks.isEmpty()
+                ? CompletableFuture.completedFuture(null)
+                : CompletableFuture.supplyAsync(() -> generateReformStepImage(task, reinforceWorks));
+
+        CompletableFuture<String> finalFuture = CompletableFuture.supplyAsync(() -> generateReformStepImage(task, works));
+
+        CompletableFuture<String> step1Future = damageMarkers.isEmpty()
+                ? CompletableFuture.completedFuture(beforeImageUrl)
+                : CompletableFuture.supplyAsync(() -> {
+                    byte[] markedImageBytes = imageMarkerRenderer.renderMarkers(beforeImageUrl, damageMarkers);
+                    return s3Uploader.upload(markedImageBytes, "image/png", "recommendations/reform");
+                });
+
+        CompletableFuture.allOf(replaceFuture, reinforceFuture, finalFuture, step1Future).join();
+
+        String step1ImageUrl = step1Future.join();
+        String replaceImageUrl = replaceFuture.join();
+        String reinforceImageUrl = reinforceFuture.join();
+        String afterImageUrl = finalFuture.join();
+
+        List<StepDto> steps = new ArrayList<>();
+        int stepNo = 1;
+        steps.add(new StepDto(stepNo++, "해체",
+                List.of("변경이 필요한 부위 확인", "리폼 작업 준비"), step1ImageUrl));
+        if (replaceImageUrl != null) {
+            steps.add(new StepDto(stepNo++, "교체",
+                    replaceWorks.stream().map(RecommendedWorkDto::getTitle).toList(), replaceImageUrl));
+        }
+        if (reinforceImageUrl != null) {
+            steps.add(new StepDto(stepNo++, "보강",
+                    reinforceWorks.stream().map(RecommendedWorkDto::getTitle).toList(), reinforceImageUrl));
+        }
+        steps.add(new StepDto(stepNo, "완성",
+                List.of("최종 리폼 결과 확인", "개선된 사용 모습 미리보기"), afterImageUrl));
 
         BeforeAfterDto beforeAfter = new BeforeAfterDto(
                 new ImagePointsDto(beforeImageUrl,
@@ -150,8 +184,19 @@ public class RecommendationService {
 
         List<String> damageImageUrls = task.getDamageImageUrls() == null ? List.of() : task.getDamageImageUrls();
 
-        reform.setSimulation(new SimulationDto(steps, beforeAfter, damageImageUrls));
+        reform.setSimulation(new SimulationDto(steps, beforeAfter, damageImageUrls, damageMarkers));
         reform.setResultImageUrl(afterImageUrl);
+        reform.setDamageMarkers(null);
+    }
+
+    private String generateReformStepImage(DiagnosisTask task, List<RecommendedWorkDto> works) {
+        byte[] imageBytes = geminiImageClient.generateReformAfterImage(
+                task.getFrontImageUrl(),
+                task.getDetailImageUrls(),
+                works,
+                task.getDiagnosisResult()
+        );
+        return s3Uploader.upload(imageBytes, "image/png", "recommendations/reform");
     }
 
     private void fillUpcyclingImage(DiagnosisTask task, UpcyclingCandidateDto candidate) {

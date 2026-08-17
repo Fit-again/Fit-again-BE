@@ -14,7 +14,8 @@ public class RankedRecommendationDto {
     @Schema(description = "추천 방향", example = "REFORM", allowableValues = {"REFORM", "RESELL", "UPCYCLING"})
     private String recommendationType;
 
-    @Schema(description = "이 순위에 대한 이유 (정확히 3개 불릿)")
+    @Schema(description = "이 순위에 대한 이유. REFORM/UPCYCLING은 정확히 3개의 불릿 문장이고, " +
+            "RESELL은 해시태그 형식 문자열 최대 4개입니다 (예: [\"#무게부담\", \"#수납공간부족\"])")
     private List<String> reasons;
 
     @Schema(description = "사용자가 업로드한 정면 원본 이미지 URL. 모든 recommendationType 공통으로 채워집니다 (DiagnosisTask.frontImageUrl 재사용)")
@@ -43,17 +44,12 @@ public class RankedRecommendationDto {
     @Schema(description = "예상 난이도. recommendationType이 REFORM일 때만 존재합니다", example = "보통", allowableValues = {"쉬움", "보통", "어려움"})
     private String difficulty;
 
-    @Schema(description = "이 제품과 잘 맞는 사용자군 목록. recommendationType이 RESELL일 때만 존재합니다")
-    private List<SuitableUserDto> suitableUsers;
+    @Schema(description = "OpenAI가 판단한 손상/변경 부위 좌표 목록 (REFORM일 때만 채워짐). " +
+            "시뮬레이션 생성이 완료되면 simulation.damageMarkers로 옮겨지고 이 필드는 비워집니다")
+    private List<DamageMarkerDto> damageMarkers;
 
-    @Schema(description = "재판매 가치에 부정적 영향을 줄 수 있는 요소 목록. recommendationType이 RESELL일 때만 존재합니다", example = "[\"핸들/가죽 마모\", \"수납 공간 부족\"]")
-    private List<String> negativeFactors;
-
-    @Schema(description = "재판매 가치를 유지하는 긍정적 요소 목록. recommendationType이 RESELL일 때만 존재합니다", example = "[\"더블 핸들 디자인\", \"탈부착 스트랩\"]")
-    private List<String> positiveFactors;
-
-    @Schema(description = "현재 니즈에 맞는 대안 제품 추천. recommendationType이 RESELL일 때만 존재합니다")
-    private AlternativeProductSuggestionDto alternativeProductSuggestion;
+    @Schema(description = "다음 구매로 추천하는 대안 제품 목록 (정확히 3개). recommendationType이 RESELL일 때만 존재합니다")
+    private List<AlternativeProductDto> alternativeProducts;
 
     @Schema(description = "기존 제품에서 이어지는 특징 태그 목록. recommendationType이 UPCYCLING일 때만 존재합니다", example = "[\"MCM 시그니처 패턴\", \"가죽 소재\", \"금속 하드웨어\", \"브랜드 아이덴티티\"]")
     private List<String> existingFeatureTags;
@@ -88,14 +84,10 @@ public class RankedRecommendationDto {
     public void setResolvedPains(List<String> resolvedPains) { this.resolvedPains = resolvedPains; }
     public String getDifficulty() { return difficulty; }
     public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
-    public List<SuitableUserDto> getSuitableUsers() { return suitableUsers; }
-    public void setSuitableUsers(List<SuitableUserDto> suitableUsers) { this.suitableUsers = suitableUsers; }
-    public List<String> getNegativeFactors() { return negativeFactors; }
-    public void setNegativeFactors(List<String> negativeFactors) { this.negativeFactors = negativeFactors; }
-    public List<String> getPositiveFactors() { return positiveFactors; }
-    public void setPositiveFactors(List<String> positiveFactors) { this.positiveFactors = positiveFactors; }
-    public AlternativeProductSuggestionDto getAlternativeProductSuggestion() { return alternativeProductSuggestion; }
-    public void setAlternativeProductSuggestion(AlternativeProductSuggestionDto alternativeProductSuggestion) { this.alternativeProductSuggestion = alternativeProductSuggestion; }
+    public List<DamageMarkerDto> getDamageMarkers() { return damageMarkers; }
+    public void setDamageMarkers(List<DamageMarkerDto> damageMarkers) { this.damageMarkers = damageMarkers; }
+    public List<AlternativeProductDto> getAlternativeProducts() { return alternativeProducts; }
+    public void setAlternativeProducts(List<AlternativeProductDto> alternativeProducts) { this.alternativeProducts = alternativeProducts; }
     public List<String> getExistingFeatureTags() { return existingFeatureTags; }
     public void setExistingFeatureTags(List<String> existingFeatureTags) { this.existingFeatureTags = existingFeatureTags; }
 }
