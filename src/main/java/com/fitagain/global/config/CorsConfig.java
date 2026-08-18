@@ -14,6 +14,7 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "http://localhost:8080",
                         "http://localhost:3000",
+                        "http://localhost:5273",
                         "https://fit-again-fe.vercel.app"
                 )
                 // 허용하는 HTTP METHOD 지정
