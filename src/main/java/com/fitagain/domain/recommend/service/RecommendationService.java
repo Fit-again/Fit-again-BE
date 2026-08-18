@@ -12,6 +12,7 @@ import com.fitagain.global.util.S3Uploader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -38,6 +39,11 @@ public class RecommendationService {
         DiagnosisTask task = diagnosisTaskRepository.findById(taskId)
                 .orElseThrow(TaskException::notDiagnosedYet);
 
+        if (task.getStatus() == TaskStatus.RECOMMENDING || task.getStatus() == TaskStatus.RECOMMENDED) {
+            // 선행 생성 스케줄러가 이미 시작했거나 끝났음 - 그대로 반환, 재시작하지 않음
+            return task.getId();
+        }
+
         if (task.getStatus() != TaskStatus.DIAGNOSED) {
             throw TaskException.notDiagnosedYet();
         }
@@ -48,6 +54,22 @@ public class RecommendationService {
         generateRecommendationAsync(taskId);
 
         return task.getId();
+    }
+
+    @Scheduled(fixedDelay = 3000)
+    @Transactional
+    public void autoStartRecommendationForDiagnosedTasks() {
+        List<DiagnosisTask> readyTasks = diagnosisTaskRepository.findByStatus(TaskStatus.DIAGNOSED);
+        for (DiagnosisTask task : readyTasks) {
+            try {
+                task.startRecommending(); // 상태를 RECOMMENDING으로 선점 (중복 실행 방지)
+                diagnosisTaskRepository.save(task);
+                generateRecommendationAsync(task.getId());
+                log.info("진단 완료 감지 - 추천 자동 시작. taskId={}", task.getId());
+            } catch (Exception e) {
+                log.error("추천 자동 시작 실패. taskId={}", task.getId(), e);
+            }
+        }
     }
 
     @Transactional(readOnly = true)
