@@ -20,6 +20,13 @@ import java.util.stream.Collectors;
 @Component
 public class GeminiImageClient {
 
+    private static final String BRAND_PROTECTION_NOTE = """
+            이 가방은 MCM 브랜드 제품입니다. 원본 사진에 있는 MCM 고유 패턴/로고/디테일 외에
+            다른 브랜드의 로고, 워터마크, 패턴을 절대 새로 추가하지 마세요.
+            브랜드 요소를 변경해야 한다면 무늬 없는 단색 가죽으로 대체하거나 기존 MCM 디자인 요소를
+            그대로 유지하는 방향으로만 처리하세요.
+            """;
+
     private final RestClient geminiRestClient;
 
     @Value("${gemini.model:gemini-3.1-flash-image}")
@@ -50,9 +57,10 @@ public class GeminiImageClient {
                 아래 리폼 작업 내용을 실제로 적용한 것처럼, 같은 가방을 편집한 완성 이미지 1장을 생성해 주세요.
                 가방의 기본 형태, 소재, 색상은 반드시 원본 사진과 동일하게 유지하면서 아래 내용만 적당한 수준으로 반영하고, 과도한 디자인 변경은 하지 마세요.
                 %s
+                %s
                 리폼 작업 내용:
                 %s
-                """.formatted(diagnosisNote, worksSummary);
+                """.formatted(diagnosisNote, BRAND_PROTECTION_NOTE, worksSummary);
 
         return generateImage(prompt, referenceImages(frontImageUrl, detailImageUrls));
     }
@@ -69,13 +77,22 @@ public class GeminiImageClient {
         String diagnosisNote = buildDiagnosisNote(diagnosisResult);
 
         String prompt = """
-                첨부된 이미지는 업사이클링 원재료가 될 가방의 정면 사진과 디테일 사진입니다.
-                이 가방과 동일한 소재, 색상, 질감을 사용해서 "%s"(으)로 업사이클링한 결과물 이미지 1장을 생성해 주세요.
-                설명: %s
-                %s
-                원본 가방의 가죽/패브릭 질감과 색상이 그대로 느껴지도록 생성하세요.
-                """.formatted(candidate.getItemName(), candidate.getDescription(), diagnosisNote);
+        첨부된 이미지는 업사이클링 원재료가 될 가방의 정면 사진과 디테일 사진입니다.
+        이 가방과 동일한 소재, 색상, 질감을 사용해서 "%s"(으)로 업사이클링한 결과물을 만들어 주세요.
+        설명: %s
 
+        중요한 규칙:
+        - 이미지에는 오직 완성된 "%s" 하나만 보여주세요.
+        - 원본 가방이나 다른 형태의 제품을 함께 보여주지 마세요. 배경에 원본 가방을 두거나, 원본과 결과물을 나란히 보여주는 비교 구도로 만들지 마세요.
+        - "%s"의 실제 형태와 용도에 맞는 완성품 단독 제품 사진(product shot)으로만 생성하세요.
+
+        원본 가방의 가죽/패브릭 질감과 색상이 그대로 느껴지도록 생성하세요.
+
+        이 가방은 MCM 브랜드 제품입니다. 원본 사진에 있는 MCM 고유 패턴/로고/디테일 외에
+        다른 브랜드의 로고, 워터마크, 패턴을 절대 새로 추가하지 마세요.
+
+        %s
+        """.formatted(candidate.getItemName(), candidate.getDescription(), candidate.getItemName(), candidate.getItemName(), diagnosisNote);
         return generateImage(prompt, referenceImages(frontImageUrl, detailImageUrls));
     }
 
@@ -115,7 +132,14 @@ public class GeminiImageClient {
         }
 
         Map<String, Object> requestBody = Map.of(
-                "contents", List.of(Map.of("parts", parts))
+                "contents", List.of(Map.of("parts", parts)),
+                "generationConfig", Map.of(
+                        "responseModalities", List.of("IMAGE"),
+                        "imageConfig", Map.of(
+                                "imageSize", "1K",
+                                "aspectRatio", "1:1"
+                        )
+                )
         );
 
         Map<String, Object> response = geminiRestClient.post()

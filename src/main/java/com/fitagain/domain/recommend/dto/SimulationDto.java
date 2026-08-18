@@ -23,4 +23,8 @@ public class SimulationDto {
 
     @Schema(description = "사용자가 촬영한 손상 부위 이미지 URL 목록 (DiagnosisTask.damageImageUrls 재사용, 없으면 빈 리스트)")
     private List<String> damageImageUrls;
+
+    @Schema(description = "STEP1 \"해체\" 이미지에 합성된 손상/변경 부위 원형 마커의 원본 좌표 목록 (0~100 비율, 없으면 빈 리스트). " +
+            "프론트에서 자체적으로 마커를 다시 그리고 싶을 때 참고용으로 사용합니다")
+    private List<DamageMarkerDto> damageMarkers;
 }

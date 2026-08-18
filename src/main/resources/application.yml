@@ -48,7 +48,7 @@ gemini:
   api-key: ${GEMINI_API_KEY}
   model: gemini-3.1-flash-image
 
-#huggin-face 설정 (이미지 생성)
+#huggin-face 설정 (이제 안 씀, 이미지 생성)
 huggingface:
   api-key: ${HF_API_KEY}
   model: stabilityai/stable-diffusion-3-medium-diffusers

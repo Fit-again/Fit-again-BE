@@ -11,6 +11,10 @@ public class RecommendedWorkDto {
     @Schema(description = "리폼 작업 설명", example = "무겁고 흘러내리는 기존 스트랩을 가벼운 소재로 교체해 어깨 부담을 줄여줍니다.")
     private String description;
 
+    @Schema(description = "작업 성격 (시뮬레이션 스텝 구성에 사용). REPLACE=교체 성격, REINFORCE=보강 성격",
+            example = "REPLACE", allowableValues = {"REPLACE", "REINFORCE"})
+    private String category;
+
     public RecommendedWorkDto() {}
 
     public RecommendedWorkDto(String title, String description) {
@@ -22,4 +26,6 @@ public class RecommendedWorkDto {
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
 }
