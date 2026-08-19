@@ -11,6 +11,7 @@ import com.fitagain.global.util.ImageMarkerRenderer;
 import com.fitagain.global.util.S3Uploader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class RecommendationService {
     private final GeminiImageClient geminiImageClient;
     private final ImageMarkerRenderer imageMarkerRenderer;
     private final S3Uploader s3Uploader;
+    private final ApplicationContext applicationContext;
 
     @Transactional
     public Long requestRecommendation(Long taskId) {
@@ -51,7 +53,7 @@ public class RecommendationService {
         task.startRecommending();
         diagnosisTaskRepository.save(task);
 
-        generateRecommendationAsync(taskId);
+        applicationContext.getBean(RecommendationService.class).generateRecommendationAsync(taskId);
 
         return task.getId();
     }
@@ -64,7 +66,7 @@ public class RecommendationService {
             try {
                 task.startRecommending(); // 상태를 RECOMMENDING으로 선점 (중복 실행 방지)
                 diagnosisTaskRepository.save(task);
-                generateRecommendationAsync(task.getId());
+                applicationContext.getBean(RecommendationService.class).generateRecommendationAsync(task.getId());
                 log.info("진단 완료 감지 - 추천 자동 시작. taskId={}", task.getId());
             } catch (Exception e) {
                 log.error("추천 자동 시작 실패. taskId={}", task.getId(), e);
