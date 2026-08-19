@@ -5,6 +5,7 @@ import com.fitagain.domain.recommend.dto.RankedRecommendationDto;
 import com.fitagain.domain.recommend.dto.RecommendationJudgmentDto;
 import com.fitagain.domain.recommend.dto.RecommendedWorkDto;
 import com.fitagain.domain.recommend.dto.UpcyclingCandidateDto;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -15,8 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 @Component
 public class OpenAiRecommendationClient {
+
+    // OpenAI가 명세를 벗어난 JSON을 반환했을 때, 검증 에러를 피드백으로 붙여 재생성을 요청하는 최대 시도 횟수
+    private static final int MAX_JUDGE_ATTEMPTS = 2;
 
     private static final Set<String> ALLOWED_ALTERNATIVE_PRODUCT_TYPES =
             Set.of("토트백", "숄더백", "크로스백", "백팩", "파우치", "기타");
@@ -123,23 +128,48 @@ public class OpenAiRecommendationClient {
             damageImageUrls.forEach(url -> addImageContent(userContent, url));
         }
 
-        Map<String, Object> requestBody = Map.of(
-                "model", model,
-                "messages", List.of(
-                        Map.of("role", "system", "content", systemPrompt),
-                        Map.of("role", "user", "content", userContent)
-                ),
-                "response_format", Map.of("type", "json_object")
-        );
+        List<Map<String, Object>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", systemPrompt));
+        messages.add(Map.of("role", "user", "content", userContent));
 
-        Map<String, Object> response = openAiRestClient.post()
-                .uri("/chat/completions")
-                .body(requestBody)
-                .retrieve()
-                .body(Map.class);
+        IllegalStateException lastError = null;
+        String lastRawResponse = null;
 
-        String responseContent = extractContent(response);
-        return parseJudgment(responseContent);
+        for (int attempt = 1; attempt <= MAX_JUDGE_ATTEMPTS; attempt++) {
+            Map<String, Object> requestBody = Map.of(
+                    "model", model,
+                    "messages", messages,
+                    "response_format", Map.of("type", "json_object")
+            );
+
+            Map<String, Object> response = openAiRestClient.post()
+                    .uri("/chat/completions")
+                    .body(requestBody)
+                    .retrieve()
+                    .body(Map.class);
+
+            lastRawResponse = extractContent(response);
+
+            try {
+                return parseJudgment(lastRawResponse);
+            } catch (IllegalStateException e) {
+                lastError = e;
+                if (attempt == MAX_JUDGE_ATTEMPTS) {
+                    break;
+                }
+                log.warn("OpenAI 추천 응답이 명세를 벗어나 재생성을 요청합니다 (시도 {}/{}): {}",
+                        attempt, MAX_JUDGE_ATTEMPTS, e.getMessage());
+                messages.add(Map.of("role", "assistant", "content", lastRawResponse));
+                messages.add(Map.of(
+                        "role", "user",
+                        "content", "방금 응답이 다음 이유로 형식을 위반했습니다: " + e.getMessage()
+                                + "\n이 문제를 반드시 수정해서, 다른 설명 없이 처음과 동일한 JSON 스키마로 전체를 다시 생성해 주세요."
+                ));
+            }
+        }
+
+        log.error("OpenAI 추천 응답이 {}회 재생성 후에도 명세를 벗어났습니다. 최종 원문: {}", MAX_JUDGE_ATTEMPTS, lastRawResponse);
+        throw lastError;
     }
 
     private void addImageContent(List<Map<String, Object>> content, String url) {
@@ -155,86 +185,99 @@ public class OpenAiRecommendationClient {
     }
 
     private RecommendationJudgmentDto parseJudgment(String json) {
+        RecommendationJudgmentDto judgment;
         try {
-            RecommendationJudgmentDto judgment = objectMapper.readValue(json, RecommendationJudgmentDto.class);
-            if (judgment.getRankings() == null || judgment.getRankings().size() != 3) {
-                throw new IllegalStateException("OpenAI가 3개 순위를 모두 반환하지 않았습니다: " + json);
-            }
-            for (RankedRecommendationDto r : judgment.getRankings()) {
-                validateReasons(r, json);
-                if ("REFORM".equals(r.getRecommendationType())) {
-                    validateReform(r, json);
-                }
-                if ("UPCYCLING".equals(r.getRecommendationType())) {
-                    validateUpcycling(r, json);
-                }
-                if ("RESELL".equals(r.getRecommendationType())) {
-                    validateResell(r, json);
-                }
-            }
-            judgment.getRankings().sort((a, b) -> Integer.compare(a.getRank(), b.getRank()));
-            return judgment;
+            judgment = objectMapper.readValue(json, RecommendationJudgmentDto.class);
         } catch (Exception e) {
-            throw new IllegalStateException("OpenAI 응답 파싱 실패: " + json, e);
+            // 진짜 JSON 문법 오류일 때만 "파싱 실패"라는 이름을 씁니다. 필드 값이 명세를 벗어난 경우는
+            // 아래에서 별도의 구체적인 사유로 던져지므로 여기서 뭉뚱그리지 않습니다.
+            throw new IllegalStateException("OpenAI 응답 JSON 파싱 실패: " + e.getMessage(), e);
         }
+
+        if (judgment.getRankings() == null || judgment.getRankings().size() != 3) {
+            throw new IllegalStateException("OpenAI가 3개 순위(REFORM/RESELL/UPCYCLING)를 모두 반환하지 않았습니다.");
+        }
+        for (RankedRecommendationDto r : judgment.getRankings()) {
+            validateReasons(r);
+            if ("REFORM".equals(r.getRecommendationType())) {
+                validateReform(r);
+            }
+            if ("UPCYCLING".equals(r.getRecommendationType())) {
+                validateUpcycling(r);
+            }
+            if ("RESELL".equals(r.getRecommendationType())) {
+                validateResell(r);
+            }
+        }
+        judgment.getRankings().sort((a, b) -> Integer.compare(a.getRank(), b.getRank()));
+        return judgment;
     }
 
-    private void validateReasons(RankedRecommendationDto r, String json) {
+    private void validateReasons(RankedRecommendationDto r) {
         if (r.getReasons() == null || r.getReasons().isEmpty()) {
-            throw new IllegalStateException("reasons가 비어있습니다: " + json);
+            throw new IllegalStateException("[" + r.getRecommendationType() + "] reasons가 비어있습니다.");
         }
         if ("RESELL".equals(r.getRecommendationType())) {
             if (r.getReasons().size() > 4) {
-                throw new IllegalStateException("RESELL의 reasons(해시태그)는 4개 이하여야 합니다: " + json);
+                throw new IllegalStateException("[RESELL] reasons(해시태그)는 4개 이하여야 하는데 "
+                        + r.getReasons().size() + "개입니다.");
             }
         } else if (r.getReasons().size() != 3) {
-            throw new IllegalStateException("이유가 3개가 아닙니다: " + json);
+            throw new IllegalStateException("[" + r.getRecommendationType() + "] reasons는 정확히 3개여야 하는데 "
+                    + r.getReasons().size() + "개입니다.");
         }
     }
 
-    private void validateReform(RankedRecommendationDto r, String json) {
+    private void validateReform(RankedRecommendationDto r) {
         if (r.getRecommendedWorks() == null || r.getRecommendedWorks().size() != 3) {
-            throw new IllegalStateException("REFORM의 recommendedWorks가 3개가 아닙니다: " + json);
+            throw new IllegalStateException("[REFORM] recommendedWorks는 정확히 3개여야 합니다.");
         }
         for (RecommendedWorkDto work : r.getRecommendedWorks()) {
             if (!"REPLACE".equals(work.getCategory()) && !"REINFORCE".equals(work.getCategory())) {
-                throw new IllegalStateException("REFORM 작업의 category가 REPLACE/REINFORCE가 아닙니다: " + json);
+                throw new IllegalStateException("[REFORM] recommendedWorks[].category는 REPLACE 또는 REINFORCE여야 하는데 '"
+                        + work.getCategory() + "' 입니다.");
             }
         }
         if (r.getSummaryComment() == null || r.getSummaryComment().isBlank()
                 || r.getResolvedPains() == null || r.getResolvedPains().isEmpty()
                 || r.getDifficulty() == null || r.getDifficulty().isBlank()) {
-            throw new IllegalStateException("REFORM의 summaryComment/resolvedPains/difficulty가 누락되었습니다: " + json);
+            throw new IllegalStateException("[REFORM] summaryComment/resolvedPains/difficulty 중 누락된 필드가 있습니다.");
         }
     }
 
-    private void validateUpcycling(RankedRecommendationDto r, String json) {
+    private void validateUpcycling(RankedRecommendationDto r) {
         if (r.getUpcyclingCandidates() == null || r.getUpcyclingCandidates().size() != 3) {
-            throw new IllegalStateException("UPCYCLING의 upcyclingCandidates가 3개가 아닙니다: " + json);
+            throw new IllegalStateException("[UPCYCLING] upcyclingCandidates는 정확히 3개여야 합니다.");
         }
         if (r.getExistingFeatureTags() == null || r.getExistingFeatureTags().isEmpty()) {
-            throw new IllegalStateException("UPCYCLING의 existingFeatureTags가 누락되었습니다: " + json);
+            throw new IllegalStateException("[UPCYCLING] existingFeatureTags가 누락되었습니다.");
         }
         for (UpcyclingCandidateDto candidate : r.getUpcyclingCandidates()) {
             if (candidate.getReasonPairs() == null || candidate.getReasonPairs().isEmpty()) {
-                throw new IllegalStateException("UPCYCLING 후보의 reasonPairs가 비어있습니다: " + json);
+                throw new IllegalStateException("[UPCYCLING] 후보 '" + candidate.getItemName() + "'의 reasonPairs가 비어있습니다.");
             }
             if (candidate.getExpectedChanges() == null || candidate.getExpectedChanges().isEmpty()) {
-                throw new IllegalStateException("UPCYCLING 후보의 expectedChanges가 비어있습니다: " + json);
+                throw new IllegalStateException("[UPCYCLING] 후보 '" + candidate.getItemName() + "'의 expectedChanges가 비어있습니다.");
             }
         }
+        // imageUrl은 judge() 응답 시점에는 아직 없는 게 정상입니다 (RecommendationService가 이후
+        // Gemini로 이미지를 생성해서 채워 넣습니다). 여기서 검증 대상에 포함하지 않습니다.
     }
 
-    private void validateResell(RankedRecommendationDto r, String json) {
+    private void validateResell(RankedRecommendationDto r) {
         if (r.getAlternativeProducts() == null || r.getAlternativeProducts().size() != 3) {
-            throw new IllegalStateException("RESELL의 alternativeProducts가 3개가 아닙니다: " + json);
+            throw new IllegalStateException("[RESELL] alternativeProducts는 정확히 3개여야 합니다.");
         }
         for (AlternativeProductDto product : r.getAlternativeProducts()) {
             if (product.getProductType() == null || !ALLOWED_ALTERNATIVE_PRODUCT_TYPES.contains(product.getProductType())) {
-                throw new IllegalStateException("RESELL alternativeProducts의 productType이 허용된 값이 아닙니다: " + json);
+                // productType은 재시도 없이 그 자리에서 "기타"로 보정합니다. AI가 허용 목록 밖의
+                // 값(예: "클러치", "미니백")을 자유롭게 지어내는 경우가 있어, 굳이 전체 응답을
+                // 재생성시키기보다 이 필드만 안전하게 흡수하는 편이 비용/지연 면에서 낫습니다.
+                log.warn("[RESELL] productType '{}'이(가) 허용 목록을 벗어나 '기타'로 보정합니다.", product.getProductType());
+                product.setProductType("기타");
             }
             if (product.getHashtags() == null || product.getHashtags().isEmpty() || product.getHashtags().size() > 4) {
-                throw new IllegalStateException("RESELL alternativeProducts의 hashtags는 1~4개여야 합니다: " + json);
+                throw new IllegalStateException("[RESELL] alternativeProducts[].hashtags는 1~4개여야 합니다.");
             }
         }
     }
