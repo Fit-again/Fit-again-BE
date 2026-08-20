@@ -90,7 +90,11 @@ public class VisionAiService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                log.error("OpenAI API 에러: {}", response.body());
+                log.error("======================================================");
+                log.error("❌ [VisionAiService] OpenAI API 비전 검증 요청 실패!");
+                log.error("상태 코드: {}", response.statusCode());
+                log.error("응답 바디(에러 상세): {}", response.body());
+                log.error("======================================================");
                 return new VisionResult(false, "AI 서버 에러 발생 (" + response.statusCode() + ")");
             }
 
