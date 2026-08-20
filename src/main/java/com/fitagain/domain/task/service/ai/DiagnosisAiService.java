@@ -96,7 +96,11 @@ public class DiagnosisAiService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                log.error("OpenAI API 진단 에러: {}", response.body());
+                log.error("======================================================");
+                log.error("❌ [DiagnosisAiService] OpenAI API 진단 요청 실패!");
+                log.error("상태 코드: {}", response.statusCode());
+                log.error("응답 바디(에러 상세): {}", response.body());
+                log.error("======================================================");
                 throw new RuntimeException("AI 서버 에러 발생 (" + response.statusCode() + ")");
             }
 

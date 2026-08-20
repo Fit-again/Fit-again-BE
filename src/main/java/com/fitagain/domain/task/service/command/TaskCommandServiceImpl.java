@@ -88,7 +88,11 @@ public class TaskCommandServiceImpl implements TaskCommandService {
             log.info("비동기 AI 진단 분석 완료 - taskId: {}", taskId);
             
         } catch (Exception e) {
-            log.error("비동기 AI 진단 분석 실패 - taskId: {}", taskId, e);
+            log.error("======================================================");
+            log.error("❌ [TaskCommandService] 비동기 AI 진단 분석 실패!");
+            log.error("Task ID: {}", taskId);
+            log.error("에러 내용: {}", e.getMessage(), e);
+            log.error("======================================================");
             task.failDiagnosis(e.getMessage());
             taskRepository.save(task);
         }
