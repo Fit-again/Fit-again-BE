@@ -41,7 +41,7 @@ spring:
 # OpenAI 설정 통일
 openai:
   api-key: ${OPENAI_API_KEY}
-  model: gpt-4o
+  model: gpt-4o-mini
 
 # Gemini 설정 (이미지 생성)
 gemini:
