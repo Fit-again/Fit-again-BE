@@ -65,16 +65,16 @@ public class DiagnosisAiService {
                     "손상 부위 사진이 생략되어 있다면 대표 정면 사진을 참고하여 손상 부위가 있는지 확인해주시고, 크게 티나는 정도가 아닌 사소한 정도는 손상 부위 없음으로 인지해주세요.\n\n" +
                     "이러한 분석을 바탕으로 아래 JSON 형식에 맞게 진단 결과를 응답해 주세요.\n" +
                     "형식: {\n" +
-                    "  \"externalStructure\": [\"외부 구조 특징 최대 3개 (예: 더블 핸들, 탈부착 스트랩, 사이드 포켓)\"],\n" +
-                    "  \"damageState\": [\"손상 상태 최대 3개 (예: 모서리 마모, 스트랩 사용감)\"],\n" +
-                    "  \"currentPurpose\": \"사용자의 설명란이나 가방 형태에 의해 알 수 있다면 '출퇴근용'과 같이 사용 목적을 응답하고, 그렇지 않다면 '확인할 수 없음' 반환\",\n" +
-                    "  \"mainInconvenience\": [\"주요 불편 원인 최대 3개 요약 (예: 어깨에 부담이 감, 스트랩이 자주 흘러내림)\"],\n" +
-                    "  \"areasForImprovement\": [\"개선 필요 부분 최대 3개 요약 (예: 경량 스트랩 교체, 어깨 패드 추가, 모서리 보강)\"],\n" +
+                    "  \"externalStructure\": [\"외부 구조 특징 최대 3개 (반드시 한국어로 작성. 예: 더블 핸들, 탈부착 스트랩, 사이드 포켓)\"],\n" +
+                    "  \"damageState\": [\"손상 상태 최대 3개 (반드시 한국어로 작성. 예: 모서리 마모, 스트랩 사용감)\"],\n" +
+                    "  \"currentPurpose\": \"사용자의 설명란이나 가방 형태에 의해 알 수 있다면 '출퇴근용'과 같이 사용 목적을 응답하고, 그렇지 않다면 '확인할 수 없음' 반환 (반드시 한국어로 작성)\",\n" +
+                    "  \"mainInconvenience\": [\"주요 불편 원인 최대 3개 요약 (반드시 한국어로 작성. 예: 어깨에 부담이 감, 스트랩이 자주 흘러내림)\"],\n" +
+                    "  \"areasForImprovement\": [\"개선 필요 부분 최대 3개 요약 (반드시 한국어로 작성. 예: 경량 스트랩 교체, 어깨 패드 추가, 모서리 보강)\"],\n" +
                     "  \"color\": \"대표 정면 사진에 보이는 가방의 주된 색상을 영어로 간결하게 (예: pink, dark brown, cream)\",\n" +
                     "  \"size\": \"가방의 대략적인 크기 (예: small, medium, large)\",\n" +
                     "  \"pattern\": \"가방 표면의 패턴/재질 특징 (예: solid, monogram, quilted, no distinct pattern)\"\n" +
                     "}\n" +
-                    "color/size/pattern은 이후 이미지 생성 프롬프트에 그대로 사용되므로, 반드시 사진에서 실제로 보이는 값을 정확히 반환해야 합니다.",
+                    "중요 규칙: color, size, pattern 세 가지 필드는 이후 이미지 생성에 쓰이므로 반드시 '영어'로 반환하고, 나머지 모든 텍스트(externalStructure, damageState, currentPurpose, mainInconvenience, areasForImprovement)는 절대 영어를 쓰지 말고 오직 '한국어'로만 반환해 주세요.",
                     productType, keywords.toString(), description != null ? description : "없음"
             );
             textContent.put("text", prompt);
